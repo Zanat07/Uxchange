@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="stylesheet" href="../atoms/navbar.css">
+    <link rel="stylesheet" href="../HeatMap.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Analytics Dashboard</title>
+    <!-- Enlace de Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="../atoms/analytics.css">
+    <style>
+        .dashboard-container {
+            max-width: 1200px;
+            margin: auto;
+        }
+        .chart {
+            margin-bottom: 40px;
+        }
+        .kpi-container {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .kpi {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 1;
+            text-align: center;
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li id="brand-container">
+                    <div class="brand-container">
+                        <div class="column" id="logo">
+                            <img src="../../UN intercambio logo.png" alt="Logo Un Intercambio" id="logoIntercambio" />
+                        </div>
+                    </div>
+                </li>
+                <li><a href="Convenios.html">Convenios</a></li>
+                <li><a href="Analytics.html" class="active">Analytics</a></li>
+                <br />
+                <br />
+                <script>
+                    function logout() {
+                        window.location.href = '../index.html';
+                    }
+                </script>
+                <li>
+                    <a class="button-container">
+                        <button id="cerrar-sesion" onclick="logout()">Cerrar sesion</button>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="dashboard-container">
+        <h1>Analytics Dashboard</h1>
+
+        <div class="kpi-container">
+            <div class="kpi" id="totalAgreementsKPI">
+                <div>Total Agreements</div>
+                <div id="totalAgreementsValue">0</div>
+            </div>
+            <div class="kpi" id="activeAgreementsKPI">
+                <div>Active Agreements</div>
+                <div id="activeAgreementsValue">0</div>
+            </div>
+        </div>
+
+        <div id="areaChart" class="chart">
+            <h2>Area Chart - Total Agreements per Year</h2>
+            <canvas id="areaChartCanvas"></canvas>
+        </div>
+
+        <div id="stackedAreaChart" class="chart">
+            <h2>Stacked Area Chart - Agreements per Year by State</h2>
+            <canvas id="stackedAreaChartCanvas"></canvas>
+        </div>
+
+        <div id="barChart" class="chart">
+            <h2>Bar Chart - Agreements by Country</h2>
+            <canvas id="barChartCanvas"></canvas>
+        </div>
+
+        <div id="donutChart" class="chart">
+            <h2>Donut Chart - Agreement Types Distribution</h2>
+            <canvas id="donutChartCanvas"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        async function fetchData() {
+            const response = await fetch('http://localhost:5000/api/analytics');
+            const data = await response.json();
+            return data;
+        }
+
+        function createChart(ctx, type, data, options) {
+            return new Chart(ctx, {
+                type: type,
+                data: data,
+                options: options,
+            });
+        }
+
+        function createAreaChart(ctx, labels, values, label) {
+            return createChart(ctx, 'line', {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    fill: true,
+                    backgroundColor: 'rgba(54, 162, 235, 0.4)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    tension: 0.3,
+                }]
+            }, {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            });
+        }
+
+        function createStackedAreaChart(ctx, labels, datasets) {
+            return createChart(ctx, 'line', {
+                labels: labels,
+                datasets: datasets.map(ds => ({
+                    label: ds.label,
+                    data: ds.data,
+                    fill: true,
+                    borderColor: getRandomColor(),
+                    backgroundColor: getRandomColor(0.4),
+                    tension: 0.3,
+                    stack: 'stack1',
+                }))
+            }, {
+                responsive: true,
+                scales: {
+                    y: {
+                        stacked: true,
+                        beginAtZero: true
+                    }
+                }
+            });
+        }
+
+        function createBarChart(ctx, labels, values, label) {
+            return createChart(ctx, 'bar', {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1,
+                }]
+            }, {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            });
+        }
+
+        function createDonutChart(ctx, labels, values, label) {
+            return createChart(ctx, 'doughnut', {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    backgroundColor: generateColors(labels.length),
+                    borderWidth: 1,
+                }]
+            }, {
+                responsive: true,
+                cutout: '60%',
+            });
+        }
+
+        function getRandomColor(alpha = 1) {
+            const r = Math.floor(Math.random() * 200);
+            const g = Math.floor(Math.random() * 200);
+            const b = Math.floor(Math.random() * 200);
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        function generateColors(count) {
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                colors.push(getRandomColor(0.6));
+            }
+            return colors;
+        }
+
+        async function main() {
+            const data = await fetchData();
+
+            // Update KPIs
+            document.getElementById('totalAgreementsValue').textContent = data.kpis.totalAgreements;
+            document.getElementById('activeAgreementsValue').textContent = data.kpis.activeAgreements;
+
+            // Area Chart
+            const areaCtx = document.getElementById('areaChartCanvas').getContext('2d');
+            createAreaChart(areaCtx, data.areaChart.labels, data.areaChart.values, data.areaChart.label);
+
+            // Stacked Area Chart
+            const stackedAreaCtx = document.getElementById('stackedAreaChartCanvas').getContext('2d');
+            createStackedAreaChart(stackedAreaCtx, data.stackedAreaChart.labels, data.stackedAreaChart.datasets);
+
+            // Bar Chart
+            const barCtx = document.getElementById('barChartCanvas').getContext('2d');
+            createBarChart(barCtx, data.barChart.labels, data.barChart.values, data.barChart.label);
+
+            // Donut Chart
+            const donutCtx = document.getElementById('donutChartCanvas').getContext('2d');
+            createDonutChart(donutCtx, data.donutChart.labels, data.donutChart.values, data.donutChart.label);
+        }
+
+        main();
+    </script>
+</body>
+
+</html>

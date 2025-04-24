@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="stylesheet" href="../atoms/navbar.css">
+    <!-- ESTE ES EL CSS DEL MENU -->
+    <link rel="stylesheet" href="../HeatMap.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNintercambio</title>
+    <!-- Enlace de Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="../atoms/convenios.css">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li id="brand-container">
+                    <div class="brand-container">
+                        <div class="column" id="logo">
+                            <img src="../../UN intercambio logo.png" alt="Logo Un Intercambio" id="logoIntercambio">
+                        </div>
+                    </div>
+                </li>
+                <li><a href="Convenios.html">Convenios</a></li>
+                <li><a href="Analytics.html">Analytics</a></li>
+
+                <br>
+                <br>
+                <script>
+                    function logout() {
+                        // Redirige al usuario a la página de inicio de sesión
+                        window.location.href = '../login.html'; // Ajusta la ruta si es necesario
+                    }
+                </script>
+                <li>
+                    <a class="button-container">
+                        <button id="cerrar-sesion" onclick="logout()">Cerrar sesion</button>
+                        <!--BOTON PARA CERRAR SESION-->
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+    <div class="search-container">
+        <span class="search-icon"><i class="fas fa-search"></i></span>
+        <!-- Icono de búsqueda de Font Awesome -->
+        <input type="text" id="search-bar" class="search-bar" placeholder="Buscar...">
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="container" id="card-container"></div>
+
+    <!-- Pop-up y overlay -->
+    <div class="popup-overlay" id="popup-overlay"></div>
+    <div class="popup" id="popup">
+        <span class="close-popup" id="close-popup">&times;</span>
+        <div id="popup-content"></div>
+    </div>
+
+    <script>
+        async function fetchJSON() {
+            const response = await fetch('http://localhost:5000/api/convenios');
+            const data = await response.json();
+            return data;
+        }
+
+        function createCards(data) {
+            const container = document.getElementById('card-container');
+            container.innerHTML = ''; // Limpiar contenedor antes de agregar nuevas tarjetas
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                // Crear el atributo Props combinando datos relevantes
+                const Props = `
+                    ${item.country}
+                    ${item.institution}
+                    ${item.agreementType}
+                    ${item.validity}
+                    ${item.state}
+                    ${item.languages}
+                    ${item.Props}
+                    ${item.subscriptionYear}
+                `.toLowerCase(); // Convertir todo a minúsculas para facilitar la búsqueda
+
+                card.setAttribute('Props', Props);
+
+                const content = document.createElement('div');
+                content.className = 'card-content';
+
+                const title = document.createElement('h2');
+                title.className = 'card-title';
+                title.innerHTML = `<img src="../assets/flags/${item.country}.png" alt="${item.country} flag" class="flag">${item.institution}`;
+                content.appendChild(title);
+
+                const description = document.createElement('p');
+                description.className = 'card-description';
+                description.innerHTML = `
+                <strong>Country:</strong> ${item.country}<br>
+                <strong>Agreement Type:</strong> ${item.agreementType}<br>
+                <strong>Validity:</strong> ${item.validity}<br>
+                <strong>State:</strong> ${item.state}<br>
+                <strong>Languages:</strong> ${item.languages}<br>
+                <strong>Subscription Year:</strong> ${item.subscriptionYear}
+            `;
+                content.appendChild(description);
+
+                const links = document.createElement('div');
+                links.className = 'card-links';
+
+                if (item.dreLink) {
+                    const dreLink = document.createElement('a');
+                    dreLink.href = item.dreLink;
+                    dreLink.textContent = 'DRE Link';
+                    dreLink.target = '_blank';
+                    links.appendChild(dreLink);
+                    links.appendChild(document.createElement('br'));
+                }
+
+                if (item.agreementLink) {
+                    const agreementLink = document.createElement('a');
+                    agreementLink.href = item.agreementLink;
+                    agreementLink.textContent = 'Agreement Link';
+                    agreementLink.target = '_blank';
+                    links.appendChild(agreementLink);
+                    links.appendChild(document.createElement('br'));
+                }
+
+                if (item.internationalLink) {
+                    const internationalLink = document.createElement('a');
+                    internationalLink.href = item.internationalLink;
+                    internationalLink.textContent = 'International Link';
+                    internationalLink.target = '_blank';
+                    links.appendChild(internationalLink);
+                    links.appendChild(document.createElement('br'));
+                }
+
+                content.appendChild(links);
+                card.appendChild(content);
+                container.appendChild(card);
+
+                // Agregar event listener para mostrar el pop-up
+                card.addEventListener('click', () => showPopup(Props));
+            });
+        }
+
+        function normalizeString(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        }
+
+        function applyFilters(filters) {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                const Props = normalizeString(card.getAttribute('Props'));
+                const isVisible = filters.every(filter => Props.includes(normalizeString(filter)));
+                card.style.display = isVisible ? 'block' : 'none';
+            });
+        }
+
+
+        function removeFilter(filter, filters) {
+            const index = filters.indexOf(filter);
+            if (index !== -1) {
+                filters.splice(index, 1);
+                applyFilters(filters);
+            }
+        }
+
+        function addFilter(filter, filters) {
+            const normalizedFilter = normalizeString(filter);
+            if (!filters.includes(normalizedFilter)) {
+                filters.push(normalizedFilter);
+                const filterElement = document.createElement('div');
+                filterElement.className = 'filter';
+                filterElement.textContent = filter; // Mantiene la versión original para mostrar
+
+                const removeButton = document.createElement('span');
+                removeButton.className = 'remove-filter';
+                removeButton.innerHTML = '&times;';
+                removeButton.onclick = () => {
+                    removeFilter(normalizedFilter, filters);
+                    filterElement.remove();
+                };
+
+                filterElement.appendChild(removeButton);
+                document.getElementById('filters').appendChild(filterElement);
+                applyFilters(filters);
+            }
+        }
+
+
+        function showPopup(content) {
+            const popup = document.getElementById('popup');
+            const popupContent = document.getElementById('popup-content');
+            const overlay = document.getElementById('popup-overlay');
+
+            popupContent.textContent = content;
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+
+            overlay.addEventListener('click', hidePopup);
+        }
+
+        function hidePopup() {
+            const popup = document.getElementById('popup');
+            const overlay = document.getElementById('popup-overlay');
+
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        async function main() {
+            const jsonData = await fetchJSON();
+            createCards(jsonData);
+
+            const filters = [];
+            const searchBar = document.getElementById('search-bar');
+            searchBar.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && searchBar.value) {
+                    addFilter(searchBar.value, filters);
+                    searchBar.value = '';
+                }
+            });
+
+            // Event listener para cerrar el pop-up
+            document.getElementById('close-popup').addEventListener('click', hidePopup);
+        }
+
+        main();
+    </script>
+</body>
+
+</html>
